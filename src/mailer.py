@@ -11,10 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 def build_daily_mail_text(cards: list[dict], site_url: str) -> str:
+    lines = []
+    lines.append("ArxivFilter Daily Digest")
+    lines.append("")
     if not cards:
         return "今日没有新增可展示文章。"
 
-    lines = []
     lines.append(f"今日新增文章：{len(cards)} 篇")
     lines.append(f"已同步至：{site_url}")
     lines.append("")
