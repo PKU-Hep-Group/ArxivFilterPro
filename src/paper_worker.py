@@ -76,6 +76,13 @@ def _download_pdf(paper_dir: str, paper: Paper) -> str:
     return pdf_path
 
 
+def _remove_downloaded_pdf(paper_dir: str, arxiv_id: str) -> None:
+    pdf_path = os.path.join(paper_dir, "paper.pdf")
+    if os.path.isfile(pdf_path):
+        os.remove(pdf_path)
+        logger.info("Removed PDF for %s", arxiv_id)
+
+
 def process_one_paper(
     paper: Paper,
     *,
@@ -116,6 +123,7 @@ def process_one_paper(
 
         if return_code == 0 and _has_all_outputs(paper_dir):
             logger.info("Paper %s done in attempt %d", paper.arxiv_id, attempt)
+            _remove_downloaded_pdf(paper_dir, paper.arxiv_id)
             return WorkerResult(
                 arxiv_id=paper.arxiv_id,
                 success=True,
@@ -132,6 +140,7 @@ def process_one_paper(
         last_error = f"{output_state}; see {log_path}"
         logger.warning("Paper %s failed in attempt %d: %s", paper.arxiv_id, attempt, last_error)
 
+    _remove_downloaded_pdf(paper_dir, paper.arxiv_id)
     return WorkerResult(
         arxiv_id=paper.arxiv_id,
         success=False,
