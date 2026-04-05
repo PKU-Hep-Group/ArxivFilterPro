@@ -1,0 +1,63 @@
+categories:
+  - hep-ph
+  - hep-ex
+  - cs.CV
+  - cs.LG
+  - stat.ML
+  - physics.data-an
+
+keyword_logic: >-
+  (
+    "high-energy physics" or "high energy physics" or "particle physics" or "Large Hadron Collider" or "{LHC}" or "{CMS Collaboration}" or "{ATLAS Collaboration}" or "{LHCb Collaboration}" or "collider" or
+    "proton-proton" or "jet " or "jets " or "parton" or "{QCD}" or "standard model" or "bottom quark" or "top quark" or "higgs boson" or "new particle" or "calorimeter"
+  ) and
+  (
+    "machine learn" or "machine-learn" or "deep learn" or "deep-learn" or "artificial intelligence" or "network" or "{DNN}" or "{CNN}" or "{RNN}" or "{GNN}" or
+    "transformer" or "convolution" or "generative adversarial network" or "{GAN}" or "autoencoder" or "auto-encoder" or "generative model" or "computer vision" or "agent"
+  )
+
+runtime:
+  timezone: "Asia/Shanghai"
+  max_results_per_category: 300
+  lookback_hours: 24
+  max_workers: 2
+  log_level: "INFO"
+  prompt_template: "prompts/paper_summary_prompt.md"
+  output_root: "data"
+  previous_arxivs_file: "previous_arxivs.csv"
+  codex_timeout_sec: 1800
+  logs_dir: "logs"
+
+test_mode:
+  enabled: false
+  test_paper_id: "2508.15048v2"
+  skip_site_commit: true
+  dummy_codex: false
+
+sites:
+  local_path: "site"
+  public_url: "https://<your-example-website>.github.io/"
+  branch: "main"
+  auto_push: true
+  commit_message_template: "Daily update: {date}"
+  cards_data_relpath: "data/cards.json"
+
+codex:
+  shell: "/bin/zsh"
+  shell_rcfile: ""
+  pre_command: "" # run a pre-command before codex, e.g. setting up proxy
+  command_template:
+    - "codex"
+    - "exec"
+    - "--full-auto"
+    - "--skip-git-repo-check"
+    - "{prompt}"
+  retries_if_missing_outputs: 1
+
+mail:
+  host: "smtp.163.com"
+  port: 994
+  user: "sender_address@163.com"
+  password: "PASSWORD"
+  receiver: "email_address@googlegroups.com"
+  dryrun: false
