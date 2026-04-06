@@ -272,25 +272,26 @@ def main() -> None:
     logger.info("Updated cards count: %d", len(updated_cards))
 
     published_ids = {card["id"] for card in updated_cards}
-    if published_ids:
-        append_previous_ids(prev_file, published_ids, run_tag)
+    if not test_mode:
+        if published_ids:
+            append_previous_ids(prev_file, published_ids, run_tag)
 
-        skip_site_commit = bool(config["test_mode"].get("skip_site_commit", False))
-        if (not test_mode) or (not skip_site_commit):
-            today = datetime.now(ZoneInfo(timezone_name)).date().isoformat()
-            commit_message = site_cfg["commit_message_template"].format(date=today)
-            commit_and_push_site(
-                site_path=site_cfg["local_path"],
-                branch=site_cfg["branch"],
-                auto_push=bool(site_cfg["auto_push"]),
-                commit_message=commit_message,
-            )
+            skip_site_commit = bool(config["test_mode"].get("skip_site_commit", False))
+            if (not test_mode) or (not skip_site_commit):
+                today = datetime.now(ZoneInfo(timezone_name)).date().isoformat()
+                commit_message = site_cfg["commit_message_template"].format(date=today)
+                commit_and_push_site(
+                    site_path=site_cfg["local_path"],
+                    branch=site_cfg["branch"],
+                    auto_push=bool(site_cfg["auto_push"]),
+                    commit_message=commit_message,
+                )
+            else:
+                logger.info("Skip site commit due to test mode config.")
+
+            send_daily_digest(updated_cards, config["mail"], site_cfg["public_url"])
         else:
-            logger.info("Skip site commit due to test mode config.")
-
-        send_daily_digest(updated_cards, config["mail"], site_cfg["public_url"])
-    else:
-        logger.info("No new matched papers today. Skip site commit and daily email.")
+            logger.info("No new matched papers today. Skip site commit and daily email.")
 
     logger.info("ArxivFilterPro finished.")
 
