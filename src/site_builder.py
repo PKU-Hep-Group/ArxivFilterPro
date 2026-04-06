@@ -119,9 +119,24 @@ main { padding: 24px; }
 }
 .title-en { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
 .title-zh { font-size: 0.93rem; color: #31435d; margin-bottom: 8px; }
-.authors { font-size: 0.82rem; color: #5a6b84; margin-bottom: 10px; }
+.authors { font-size: 0.82rem; color: #5a6b84; margin-bottom: 4px; }
+.paper-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #5a6b84;
+  margin-bottom: 10px;
+}
+.paper-label {
+  color: #465b76;
+}
+.paper-link {
+  text-decoration: none;
+  line-height: 1;
+}
 .card-body { font-size: 0.92rem; line-height: 1.6; color: #202b3a; }
-.abs-link { margin-left: 6px; text-decoration: none; }
 .meta-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .badge { font-size: 0.75rem; background: #e8eef8; color: #1f3f71; padding: 2px 8px; border-radius: 999px; }
 .badge.category {
@@ -345,6 +360,10 @@ function renderMarkdown(markdown) {
   return `<div class="markdown-body">${md.render(markdown || "")}</div>`;
 }
 
+function alphaXivUrl(absUrl) {
+  return (absUrl || "").replace("arxiv.org", "alphaxiv.org");
+}
+
 function renderCards() {
   const cardsRoot = document.getElementById("cards");
   const dayValue = Number(document.querySelector('input[name="dateFilter"]:checked').value);
@@ -366,8 +385,11 @@ function renderCards() {
       </div>
       <div class="title-en">${escapeHtml(card.title_en)}</div>
       <div class="title-zh">${escapeHtml(card.title_zh)}</div>
-      <div class="authors">${escapeHtml(card.authors_short)}
-        <a class="abs-link" href="${card.abs_url}" target="_blank" title="${card.abs_url}" onclick="event.stopPropagation()">🔗</a>
+      <div class="authors">${escapeHtml(card.authors_short)}</div>
+      <div class="paper-links">
+        <span class="paper-label">arXiv:${escapeHtml(card.id)}</span>
+        <a class="paper-link" href="${card.abs_url}" target="_blank" title="${card.abs_url}" onclick="event.stopPropagation()">📄</a>
+        <a class="paper-link" href="${alphaXivUrl(card.abs_url)}" target="_blank" title="${alphaXivUrl(card.abs_url)}" onclick="event.stopPropagation()">📚</a>
       </div>
       <div class="card-body">${renderMarkdown(card.ai_abstract)}</div>
     </article>
@@ -396,7 +418,12 @@ function openModal(id) {
     </div>
     <div class="title-en">${escapeHtml(card.title_en)}</div>
     <div class="title-zh">${escapeHtml(card.title_zh)}</div>
-    <div class="authors">${escapeHtml(card.authors_full)} <a class="abs-link" href="${card.abs_url}" target="_blank">🔗</a></div>
+    <div class="authors">${escapeHtml(card.authors_full)}</div>
+    <div class="paper-links">
+      <span class="paper-label">arXiv:${escapeHtml(card.id)}</span>
+      <a class="paper-link" href="${card.abs_url}" target="_blank" title="${card.abs_url}" onclick="event.stopPropagation()">📄</a>
+      <a class="paper-link" href="${alphaXivUrl(card.abs_url)}" target="_blank" title="${alphaXivUrl(card.abs_url)}" onclick="event.stopPropagation()">📚</a>
+    </div>
   `;
   setTab(card, "ai_abstract");
   document.getElementById("fullContent").innerHTML = renderMarkdown(card.content || "");
