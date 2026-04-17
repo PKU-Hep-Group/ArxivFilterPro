@@ -40,12 +40,6 @@ Test mode:
 ./run.sh --test-mode
 ```
 
-Send a custom email:
-
-```bash
-python3 send_email.py --title "Test" --content "Hello"
-```
-
 ## Outputs
 
 For each processed paper, the pipeline writes a directory under `data/` containing:
