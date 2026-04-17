@@ -4,7 +4,7 @@ import json
 import os
 from typing import Any
 
-from .id_utils import version_number
+from .id_utils import base_arxiv_id, version_number
 
 
 INDEX_HTML = """<!doctype html>
@@ -135,6 +135,26 @@ main { padding: 24px; }
 .paper-link {
   text-decoration: none;
   line-height: 1;
+}
+.version-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.version-btn {
+  border: 1px solid #cad4e3;
+  background: #f4f7fb;
+  color: #4a5d77;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.version-btn.active {
+  background: #24466f;
+  border-color: #24466f;
+  color: #f8fbff;
 }
 .card-body { font-size: 0.92rem; line-height: 1.6; color: #202b3a; }
 .meta-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -331,6 +351,7 @@ main { padding: 24px; }
 
 APP_JS = """let allCards = [];
 let currentSearch = "";
+let selectedVersions = {};
 let md = window.markdownit({
   html: false,
   linkify: true,
@@ -364,6 +385,32 @@ function alphaXivUrl(absUrl) {
   return (absUrl || "").replace("arxiv.org", "alphaxiv.org");
 }
 
+function getSelectedVersion(card) {
+  const selectedId = selectedVersions[card.id] || card.latest_version_id;
+  return (
+    card.versions.find((version) => version.id === selectedId) ||
+    card.versions[card.versions.length - 1]
+  );
+}
+
+function renderVersionButtons(card, selectedVersionId) {
+  if (card.versions.length <= 1) {
+    return "";
+  }
+  return `
+    <div class="version-switcher">
+      ${card.versions.map((version) => `
+        <button
+          class="version-btn ${version.id === selectedVersionId ? "active" : ""}"
+          data-card-id="${card.id}"
+          data-version-id="${version.id}"
+          onclick="event.stopPropagation()"
+        >v${version.version_number}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderCards() {
   const cardsRoot = document.getElementById("cards");
   const dayValue = Number(document.querySelector('input[name="dateFilter"]:checked').value);
@@ -378,59 +425,82 @@ function renderCards() {
   document.getElementById("cardCount").textContent = `当前展示 ${filtered.length} / 总计 ${allCards.length}`;
   cardsRoot.innerHTML = filtered.map((card) => `
     <article class="card" data-id="${card.id}">
+      ${(() => {
+        const version = getSelectedVersion(card);
+        return `
       <div class="meta-row">
-        <span class="badge">${card.tag}</span>
-        <span class="badge category">${card.primary_category}</span>
+        <span class="badge">${version.tag}</span>
+        <span class="badge category">${version.primary_category}</span>
         <span class="badge">${card.date}</span>
       </div>
-      <div class="title-en">${escapeHtml(card.title_en)}</div>
-      <div class="title-zh">${escapeHtml(card.title_zh)}</div>
-      <div class="authors">${escapeHtml(card.authors_short)}</div>
+      <div class="title-en">${escapeHtml(version.title_en)}</div>
+      <div class="title-zh">${escapeHtml(version.title_zh)}</div>
+      <div class="authors">${escapeHtml(version.authors_short)}</div>
       <div class="paper-links">
-        <span class="paper-label">arXiv:${escapeHtml(card.id)}</span>
-        <a class="paper-link" href="${card.abs_url}" target="_blank" title="${card.abs_url}" onclick="event.stopPropagation()">📄</a>
-        <a class="paper-link" href="${alphaXivUrl(card.abs_url)}" target="_blank" title="${alphaXivUrl(card.abs_url)}" onclick="event.stopPropagation()">📚</a>
+        <span class="paper-label">arXiv:${escapeHtml(version.id)}</span>
+        <a class="paper-link" href="${version.abs_url}" target="_blank" title="${version.abs_url}" onclick="event.stopPropagation()">📄</a>
+        <a class="paper-link" href="${alphaXivUrl(version.abs_url)}" target="_blank" title="${alphaXivUrl(version.abs_url)}" onclick="event.stopPropagation()">📚</a>
       </div>
-      <div class="card-body">${renderMarkdown(card.ai_abstract)}</div>
+      ${renderVersionButtons(card, version.id)}
+      <div class="card-body">${renderMarkdown(version.ai_abstract)}</div>
+      `;
+      })()}
     </article>
   `).join("");
 
   for (const cardEl of cardsRoot.querySelectorAll(".card")) {
     cardEl.addEventListener("click", () => openModal(cardEl.getAttribute("data-id")));
   }
+  for (const button of cardsRoot.querySelectorAll(".version-btn")) {
+    button.addEventListener("click", () => {
+      selectedVersions[button.dataset.cardId] = button.dataset.versionId;
+      renderCards();
+    });
+  }
 }
 
-function setTab(card, tabName) {
+function setTab(card, version, tabName) {
   for (const btn of document.querySelectorAll(".tabs button")) {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName);
   }
-  document.getElementById("tabContent").innerHTML = renderMarkdown(card[tabName] || "");
+  document.getElementById("tabContent").innerHTML = renderMarkdown(version[tabName] || "");
 }
 
 function openModal(id) {
   const card = allCards.find((c) => c.id === id);
   if (!card) return;
+  const version = getSelectedVersion(card);
   document.getElementById("modalHeader").innerHTML = `
     <div class="header-meta">
-      <span class="badge">${card.tag}</span>
-      <span class="badge category">${card.primary_category}</span>
+      <span class="badge">${version.tag}</span>
+      <span class="badge category">${version.primary_category}</span>
       <span class="badge">${card.date}</span>
     </div>
-    <div class="title-en">${escapeHtml(card.title_en)}</div>
-    <div class="title-zh">${escapeHtml(card.title_zh)}</div>
-    <div class="authors">${escapeHtml(card.authors_full)}</div>
+    <div class="title-en">${escapeHtml(version.title_en)}</div>
+    <div class="title-zh">${escapeHtml(version.title_zh)}</div>
+    <div class="authors">${escapeHtml(version.authors_full)}</div>
     <div class="paper-links">
-      <span class="paper-label">arXiv:${escapeHtml(card.id)}</span>
-      <a class="paper-link" href="${card.abs_url}" target="_blank" title="${card.abs_url}" onclick="event.stopPropagation()">📄</a>
-      <a class="paper-link" href="${alphaXivUrl(card.abs_url)}" target="_blank" title="${alphaXivUrl(card.abs_url)}" onclick="event.stopPropagation()">📚</a>
+      <span class="paper-label">arXiv:${escapeHtml(version.id)}</span>
+      <a class="paper-link" href="${version.abs_url}" target="_blank" title="${version.abs_url}" onclick="event.stopPropagation()">📄</a>
+      <a class="paper-link" href="${alphaXivUrl(version.abs_url)}" target="_blank" title="${alphaXivUrl(version.abs_url)}" onclick="event.stopPropagation()">📚</a>
     </div>
+    ${renderVersionButtons(card, version.id)}
   `;
-  setTab(card, "ai_abstract");
-  document.getElementById("fullContent").innerHTML = renderMarkdown(card.content || "");
+  setTab(card, version, "ai_abstract");
+  document.getElementById("fullContent").innerHTML = renderMarkdown(version.content || "");
   document.getElementById("modal").classList.remove("hidden");
 
   for (const btn of document.querySelectorAll(".tabs button")) {
-    btn.onclick = () => setTab(card, btn.getAttribute("data-tab"));
+    btn.onclick = () => {
+      const currentVersion = getSelectedVersion(card);
+      setTab(card, currentVersion, btn.getAttribute("data-tab"));
+    };
+  }
+  for (const button of document.getElementById("modalHeader").querySelectorAll(".version-btn")) {
+    button.addEventListener("click", () => {
+      selectedVersions[button.dataset.cardId] = button.dataset.versionId;
+      openModal(card.id);
+    });
   }
 }
 
@@ -488,12 +558,17 @@ def ensure_site_scaffold(site_path: str) -> None:
         f.write(APP_JS)
 
 
-def _build_card_from_paper_dir(paper_dir: str) -> dict[str, Any]:
+def sync_site_assets(site_path: str) -> None:
+    ensure_site_scaffold(site_path)
+
+
+def _build_version_card_from_paper_dir(paper_dir: str) -> dict[str, Any]:
     metadata_path = os.path.join(paper_dir, "metadata.json")
     with open(metadata_path, "r", encoding="utf-8") as f:
         metadata = json.load(f)
 
     arxiv_id = metadata["arxiv_id"]
+    base_id = base_arxiv_id(arxiv_id)
     authors = metadata["authors"]
     title_en = metadata["title"]
     title_zh = _read_text(os.path.join(paper_dir, "title_zh.md"))
@@ -524,6 +599,8 @@ def _build_card_from_paper_dir(paper_dir: str) -> dict[str, Any]:
 
     return {
         "id": arxiv_id,
+        "base_id": base_id,
+        "version_number": version_number(arxiv_id),
         "date": metadata["date"],
         "tag": tag,
         "primary_category": metadata["primary_category"],
@@ -543,6 +620,57 @@ def _build_card_from_paper_dir(paper_dir: str) -> dict[str, Any]:
     }
 
 
+def _flatten_existing_version_cards(existing_cards: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    version_cards: dict[str, dict[str, Any]] = {}
+    for card in existing_cards:
+        versions = card.get("versions")
+        if isinstance(versions, list):
+            for version in versions:
+                if "base_id" not in version:
+                    version["base_id"] = base_arxiv_id(version["id"])
+                if "version_number" not in version:
+                    version["version_number"] = version_number(version["id"])
+                version_cards[version["id"]] = version
+        elif "id" in card:
+            migrated = dict(card)
+            migrated["base_id"] = migrated.get("base_id", base_arxiv_id(migrated["id"]))
+            migrated["version_number"] = migrated.get(
+                "version_number", version_number(migrated["id"])
+            )
+            version_cards[migrated["id"]] = migrated
+    return version_cards
+
+
+def _aggregate_version_cards(version_cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for version_card in version_cards:
+        grouped.setdefault(version_card["base_id"], []).append(version_card)
+
+    aggregated_cards: list[dict[str, Any]] = []
+    for base_id, versions in grouped.items():
+        sorted_versions = sorted(
+            versions,
+            key=lambda version: (version["version_number"], version["date"], version["id"]),
+        )
+        latest = sorted_versions[-1]
+        aggregated_cards.append(
+            {
+                "id": base_id,
+                "base_id": base_id,
+                "date": latest["date"],
+                "latest_version_id": latest["id"],
+                "search_text": "\n".join(version["search_text"] for version in sorted_versions),
+                "versions": sorted_versions,
+            }
+        )
+
+    return sorted(
+        aggregated_cards,
+        key=lambda card: (card["date"], card["latest_version_id"]),
+        reverse=True,
+    )
+
+
 def update_cards(
     site_path: str,
     cards_json_relpath: str,
@@ -553,19 +681,15 @@ def update_cards(
     os.makedirs(os.path.dirname(cards_json_path), exist_ok=True)
 
     existing = _load_existing_cards(cards_json_path)
-    cards_map = {card["id"]: card for card in existing}
+    version_cards_map = _flatten_existing_version_cards(existing)
 
     updated_today: list[dict[str, Any]] = []
     for paper_dir in successful_paper_dirs:
-        card = _build_card_from_paper_dir(paper_dir)
-        cards_map[card["id"]] = card
-        updated_today.append(card)
+        version_card = _build_version_card_from_paper_dir(paper_dir)
+        version_cards_map[version_card["id"]] = version_card
+        updated_today.append(version_card)
 
-    cards = sorted(
-        cards_map.values(),
-        key=lambda x: (x["date"], x["id"]),
-        reverse=True,
-    )
+    cards = _aggregate_version_cards(list(version_cards_map.values()))
     with open(cards_json_path, "w", encoding="utf-8") as f:
         json.dump(cards, f, ensure_ascii=False, indent=2)
     return updated_today

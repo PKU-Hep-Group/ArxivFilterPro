@@ -28,6 +28,11 @@ def extract_arxiv_id_from_entry(entry_id: str) -> str:
     return ensure_versioned_arxiv_id(value)
 
 
+def base_arxiv_id(arxiv_id: str) -> str:
+    ensure_versioned_arxiv_id(arxiv_id)
+    return arxiv_id.split("v")[0]
+
+
 def version_number(arxiv_id: str) -> int:
     ensure_versioned_arxiv_id(arxiv_id)
     return int(arxiv_id.split("v")[-1])

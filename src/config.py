@@ -45,6 +45,7 @@ def load_config(config_path: str) -> dict[str, Any]:
     test_mode.setdefault("test_paper_id", "")
     test_mode.setdefault("skip_site_commit", False)
     test_mode.setdefault("dummy_codex", False)
+    test_mode.setdefault("site_only", False)
 
     sites = config["sites"]
     _required(sites, "local_path")

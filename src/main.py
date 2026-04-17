@@ -18,7 +18,7 @@ from .keyword_filter import matches_keyword_logic
 from .logging_setup import make_run_tag, setup_logging
 from .mailer import send_daily_digest
 from .models import WorkerResult
-from .site_builder import update_cards
+from .site_builder import sync_site_assets, update_cards
 from .site_git import commit_and_push_site
 from .storage import append_previous_ids, load_previous_ids
 
@@ -225,6 +225,27 @@ def main() -> None:
     os.makedirs(logs_dir, exist_ok=True)
 
     test_mode = bool(config["test_mode"]["enabled"])
+    site_cfg = config["sites"]
+    site_only_mode = test_mode and bool(config["test_mode"].get("site_only", False))
+    if site_only_mode:
+        sync_site_assets(site_cfg["local_path"])
+        logger.info("Test mode site_only enabled. Synced site assets only.")
+
+        skip_site_commit = bool(config["test_mode"].get("skip_site_commit", False))
+        if not skip_site_commit:
+            today = datetime.now(ZoneInfo(timezone_name)).date().isoformat()
+            commit_message = site_cfg["commit_message_template"].format(date=today)
+            commit_and_push_site(
+                site_path=site_cfg["local_path"],
+                branch=site_cfg["branch"],
+                auto_push=bool(site_cfg["auto_push"]),
+                commit_message=commit_message,
+            )
+        else:
+            logger.info("Skip site commit due to test mode config.")
+        logger.info("ArxivFilterPro finished in site_only mode.")
+        return
+
     if test_mode:
         test_id = normalize_test_paper_id(config["test_mode"]["test_paper_id"])
         candidates = [fetch_paper_by_id(test_id)]
@@ -263,7 +284,6 @@ def main() -> None:
         )
 
     successful_dirs = [r.paper_dir for r in worker_results if r.success]
-    site_cfg = config["sites"]
     updated_cards = update_cards(
         site_path=site_cfg["local_path"],
         cards_json_relpath=site_cfg["cards_data_relpath"],
