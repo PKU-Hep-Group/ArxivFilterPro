@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 
 import arxiv
@@ -9,6 +10,9 @@ from .id_utils import ensure_versioned_arxiv_id, extract_arxiv_id_from_entry
 from .models import Paper
 
 logger = logging.getLogger(__name__)
+
+ARXIV_SEARCH_MAX_ATTEMPTS = 10
+ARXIV_SEARCH_RETRY_SLEEP_SECONDS = 600
 
 
 def _to_paper(result: arxiv.Result) -> Paper:
@@ -28,6 +32,32 @@ def _to_paper(result: arxiv.Result) -> Paper:
     )
 
 
+def _run_search_with_retries(search: arxiv.Search) -> list[arxiv.Result]:
+    last_error: Exception | None = None
+    for attempt in range(1, ARXIV_SEARCH_MAX_ATTEMPTS + 1):
+        try:
+            return list(search.results())
+        except Exception as exc:
+            last_error = exc
+            logger.exception(
+                "arXiv search failed on attempt %d/%d",
+                attempt,
+                ARXIV_SEARCH_MAX_ATTEMPTS,
+            )
+            if attempt >= ARXIV_SEARCH_MAX_ATTEMPTS:
+                break
+            logger.warning(
+                "Retrying arXiv search in %d seconds",
+                ARXIV_SEARCH_RETRY_SLEEP_SECONDS,
+            )
+            time.sleep(ARXIV_SEARCH_RETRY_SLEEP_SECONDS)
+
+    assert last_error is not None
+    raise RuntimeError(
+        f"arXiv search failed after {ARXIV_SEARCH_MAX_ATTEMPTS} attempts"
+    ) from last_error
+
+
 def fetch_recent_by_categories(
     categories: list[str],
     max_results_per_category: int,
@@ -45,7 +75,7 @@ def fetch_recent_by_categories(
             max_results=max_results_per_category,
         )
         count = 0
-        for result in search.results():
+        for result in _run_search_with_retries(search):
             try:
                 paper = _to_paper(result)
             except ValueError as e:
@@ -55,7 +85,7 @@ def fetch_recent_by_categories(
                 continue
             dedup[paper.arxiv_id] = paper
             count += 1
-        logger.info("Category %s recent papers in 24h: %d", category, count)
+        logger.info("Category %s recent papers: %d", category, count)
 
     papers = sorted(
         dedup.values(),
@@ -69,7 +99,7 @@ def fetch_recent_by_categories(
 def fetch_paper_by_id(arxiv_id_with_version: str) -> Paper:
     ensure_versioned_arxiv_id(arxiv_id_with_version)
     search = arxiv.Search(id_list=[arxiv_id_with_version], max_results=1)
-    results = list(search.results())
+    results = _run_search_with_retries(search)
     if not results:
         raise ValueError(f"No arXiv result found for {arxiv_id_with_version}")
     paper = _to_paper(results[0])
